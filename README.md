@@ -19,6 +19,7 @@ This project enables control of Mitsubishi heat pumps (mini-splits) through the 
 ## Hardware Requirements
 
 - **Arduino Nano Matter** - MGM240P-based Matter development board
+- **Buck Converter** - Adafruit 5V 1A Buck Converter (Product ID: 4739)
 - **SparkFun Logic Level Converter BOB-12009** - For 3.3V ↔ 5V level shifting
 - **Mitsubishi Heat Pump** with CN105 connector (see compatibility list)
 - **CN105 Connector** - 5-pin JST PA connector or equivalent wiring
@@ -53,10 +54,11 @@ This controller is designed for Mitsubishi heat pumps compatible with the CN105 
 ⚠️ **WARNING**: Read the detailed [Wiring Diagram](docs/WIRING.md) before connecting any hardware. Improper wiring can damage your equipment.
 
 **Summary**:
-1. Connect CN105 connector to SparkFun BOB-12009 (5V side)
-2. Connect BOB-12009 (3.3V side) to Arduino Nano Matter UART
-3. Ensure common ground between all components
-4. Power Arduino via USB (recommended for development)
+1. Connect CN105 12V (Pin 1) to buck converter input
+2. Connect buck converter 5V output to Arduino Nano Matter power
+3. Connect CN105 connector to SparkFun BOB-12009 (5V side) for data lines
+4. Connect BOB-12009 (3.3V side) to Arduino Nano Matter UART
+5. Ensure common ground between buck converter, voltage translator, and Arduino Nano Matter
 
 See [docs/WIRING.md](docs/WIRING.md) for complete wiring instructions with diagrams.
 
