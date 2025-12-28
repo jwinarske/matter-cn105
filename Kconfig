@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Kconfig - Matter CN105 Heat Pump Controller configuration options
+
+mainmenu "Matter CN105 Heat Pump Controller Configuration"
+
+config APP_HEATPUMP_CN105
+	bool "Enable CN105 Heat Pump Controller"
+	default y
+	help
+	  Enable Mitsubishi heat pump controller via CN105 interface
+
+if APP_HEATPUMP_CN105
+
+config APP_HEATPUMP_UART_DEVICE
+	string "UART device name for CN105"
+	default "UART_1"
+	help
+	  UART device name for CN105 communication
+
+config APP_HEATPUMP_SYNC_INTERVAL_MS
+	int "Heat pump sync interval in milliseconds"
+	default 5000
+	help
+	  Interval for syncing with heat pump
+
+config APP_MATTER_ENABLED
+	bool "Enable Matter integration"
+	default y
+	help
+	  Enable Matter/CHIP protocol integration
+
+endif # APP_HEATPUMP_CN105
+
+source "Kconfig.zephyr"

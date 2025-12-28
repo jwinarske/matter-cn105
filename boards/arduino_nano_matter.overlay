@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+/*
+ * Device tree overlay for Arduino Nano Matter
+ * Configures UART for CN105 heat pump communication
+ */
+
+/ {
+	aliases {
+		heatpump-uart = &usart1;
+	};
+};
+
+/* Configure UART for CN105 communication
+ * Baud: 2400, 8 data bits, even parity, 1 stop bit (8E1)
+ */
+&usart1 {
+	status = "okay";
+	current-speed = <2400>;
+	
+	/* Pin configuration for hardware UART
+	 * TX: P0.6 (D1)
+	 * RX: P0.8 (D0)
+	 */
+	pinctrl-0 = <&usart1_default>;
+	pinctrl-names = "default";
+};
