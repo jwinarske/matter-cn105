@@ -5,10 +5,11 @@
 ### Hardware Requirements
 
 - **Arduino Nano Matter** board
+- **Buck Converter** (12V to 5V DC-DC step-down converter, e.g., Mini360 or LM2596)
 - **SparkFun Logic Level Converter BOB-12009**
 - **Mitsubishi Heat Pump** with CN105 connector (e.g., MSZ-GS06NA)
 - **CN105 Connector** (5-pin JST PA connector) or equivalent wiring
-- **USB Cable** for programming and power
+- **USB Cable** for programming and optional power
 - **Jumper Wires** for connections
 
 ### Software Requirements
@@ -66,25 +67,35 @@ west flash
 Follow the detailed wiring instructions in [`docs/WIRING.md`](WIRING.md).
 
 Key connections:
-- CN105 ↔ SparkFun BOB-12009 (5V side)
-- BOB-12009 (3.3V side) ↔ Arduino Nano Matter
-- Common ground between all components
+- CN105 Pin 1 (12V) → Buck Converter input
+- Buck Converter output (5V) → Arduino Nano Matter power
+- CN105 data pins ↔ SparkFun BOB-12009 (5V side)
+- BOB-12009 (3.3V side) ↔ Arduino Nano Matter UART
+- Common ground between buck converter, voltage translator, and Arduino Nano Matter
 
 ### Step 2: Power
 
+**Important**: Before applying power, verify buck converter output voltage is set to exactly 5.0V.
+
 Options for powering the system:
-1. **USB Power** (recommended for development): Power Arduino via USB
-2. **CN105 5V** (for production): Use 5V from heat pump (with caution)
+1. **Buck Converter from CN105** (recommended for production): 
+   - Use 12V from CN105 Pin 1 through buck converter to power Arduino
+   - Provides integrated single-power-source solution
+2. **USB Power** (recommended for development): 
+   - Power Arduino via USB for easy testing and debugging
+   - Can still be used alongside CN105 connection
 
 ### Step 3: Physical Installation
 
 1. Turn off power to the heat pump
 2. Open the heat pump indoor unit cover
 3. Locate the CN105 connector on the control board
-4. Connect your wiring harness
+4. Connect your wiring harness (including buck converter)
 5. Route wires safely away from high voltage components
-6. Secure the Arduino and logic level converter
-7. Close the cover
+6. Mount the buck converter securely (use adhesive or mounting bracket)
+7. Secure the Arduino and logic level converter
+8. Ensure all connections are insulated and secure
+9. Close the cover
 
 ## Matter Commissioning
 
@@ -132,7 +143,8 @@ Try changing:
 1. Check UART connections (TX/RX not swapped)
 2. Verify logic level converter power
 3. Check common ground
-4. Monitor serial output for errors
+4. Verify buck converter is providing stable 5V to Arduino
+5. Monitor serial output for errors
 
 ### Matter Commissioning Fails
 
