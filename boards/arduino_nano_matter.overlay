@@ -16,7 +16,10 @@
 &usart1 {
 	status = "okay";
 	current-speed = <2400>;
-	
+	parity = "even";
+    stop-bits = "1";
+    data-bits = "8";
+
 	/* Pin configuration for hardware UART
 	 * TX: P0.6 (D1)
 	 * RX: P0.8 (D0)
