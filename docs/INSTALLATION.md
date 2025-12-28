@@ -5,7 +5,7 @@
 ### Hardware Requirements
 
 - **Arduino Nano Matter** board
-- **Buck Converter** (12V to 5V DC-DC step-down converter, e.g., Mini360 or LM2596)
+- **Buck Converter** - Adafruit 5V 1A Buck Converter (Product ID: 4739)
 - **SparkFun Logic Level Converter BOB-12009**
 - **Mitsubishi Heat Pump** with CN105 connector (e.g., MSZ-GS06NA)
 - **CN105 Connector** (5-pin JST PA connector) or equivalent wiring
@@ -75,12 +75,12 @@ Key connections:
 
 ### Step 2: Power
 
-**Important**: Before applying power, verify buck converter output voltage is set to exactly 5.0V.
+**Important**: Before applying power, verify Adafruit 4739 output voltage is 5.0V (±0.1V). The Adafruit 4739 has a fixed 5V output and requires no adjustment.
 
 Options for powering the system:
-1. **Buck Converter from CN105** (recommended for production): 
-   - Use 12V from CN105 Pin 1 through buck converter to power Arduino
-   - Provides integrated single-power-source solution
+1. **Adafruit 4739 Buck Converter from CN105** (recommended for production): 
+   - Use 12V from CN105 Pin 1 through Adafruit 4739 to power Arduino
+   - Provides integrated single-power-source solution with fixed 5V output
 2. **USB Power** (recommended for development): 
    - Power Arduino via USB for easy testing and debugging
    - Can still be used alongside CN105 connection
@@ -90,9 +90,9 @@ Options for powering the system:
 1. Turn off power to the heat pump
 2. Open the heat pump indoor unit cover
 3. Locate the CN105 connector on the control board
-4. Connect your wiring harness (including buck converter)
+4. Connect your wiring harness (including Adafruit 4739 buck converter)
 5. Route wires safely away from high voltage components
-6. Mount the buck converter securely (use adhesive or mounting bracket)
+6. Mount the Adafruit 4739 securely using its mounting holes (use adhesive or mounting bracket)
 7. Secure the Arduino and logic level converter
 8. Ensure all connections are insulated and secure
 9. Close the cover
@@ -143,7 +143,7 @@ Try changing:
 1. Check UART connections (TX/RX not swapped)
 2. Verify logic level converter power
 3. Check common ground
-4. Verify buck converter is providing stable 5V to Arduino
+4. Verify Adafruit 4739 is providing stable 5V to Arduino
 5. Monitor serial output for errors
 
 ### Matter Commissioning Fails

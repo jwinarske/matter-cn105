@@ -19,7 +19,7 @@ This project enables control of Mitsubishi heat pumps (mini-splits) through the 
 ## Hardware Requirements
 
 - **Arduino Nano Matter** - MGM240P-based Matter development board
-- **Buck Converter** - 12V to 5V DC-DC step-down converter (e.g., Mini360 or similar)
+- **Buck Converter** - Adafruit 5V 1A Buck Converter (Product ID: 4739)
 - **SparkFun Logic Level Converter BOB-12009** - For 3.3V ↔ 5V level shifting
 - **Mitsubishi Heat Pump** with CN105 connector (see compatibility list)
 - **CN105 Connector** - 5-pin JST PA connector or equivalent wiring
