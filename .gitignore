@@ -1,3 +1,24 @@
+# Zephyr build artifacts
+build/
+build-*/
+outdir/
+twister-out*/
+
+# Zephyr generated files
+zephyr.hex
+zephyr.bin
+zephyr.elf
+zephyr.lst
+zephyr.map
+zephyr.dts
+*.log
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
 # Prerequisites
 *.d
 
@@ -37,5 +58,39 @@
 *.out
 *.app
 
-# debug information files
+# Debug information files
 *.dwo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Matter/CHIP generated files
+.matter/
+chip-*/
+
+# Credentials and certificates (DO NOT COMMIT)
+*.key
+*.pem
+*.crt
+credentials/
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+.cache/
