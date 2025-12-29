@@ -5,25 +5,40 @@
  */
 
 / {
-	aliases {
-		heatpump-uart = &usart1;
+	zephyr,user {
+		heatpump-uart = &eusart0;
 	};
+
+	/* OpenThread HDLC RCP interface selection */
+	chosen {
+		/* Select the HDLC RCP network interface device */
+		zephyr,hdlc-rcp-if = &hdlc_rcp_if;
+		/* Underlying UART used by the HDLC RCP interface */
+		zephyr,ot-uart = &usart0;
+	};
+
+		/* Define the HDLC RCP interface device (UART-based) */
+		hdlc_rcp_if: hdlc_rcp_if {
+			compatible = "uart_hdlc_rcp_if";
+			status = "okay";
+		};
 };
 
 /* Configure UART for CN105 communication
  * Baud: 2400, 8 data bits, even parity, 1 stop bit (8E1)
  */
-&usart1 {
+&eusart0 {
 	status = "okay";
 	current-speed = <2400>;
 	parity = "even";
-    stop-bits = "1";
-    data-bits = "8";
+	stop-bits = "1";
+	data-bits = <8>;
 
 	/* Pin configuration for hardware UART
-	 * TX: P0.6 (D1)
-	 * RX: P0.8 (D0)
+	 * TX: PA4 (D0)
+	 * RX: PA5 (D1)
 	 */
-	pinctrl-0 = <&usart1_default>;
+	pinctrl-0 = <&eusart0_default>;
 	pinctrl-names = "default";
 };
+

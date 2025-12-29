@@ -26,8 +26,8 @@ static bool connected = false;
 static heatpump_settings_callback_t settings_callback = NULL;
 static heatpump_status_callback_t status_callback = NULL;
 
-/* UART device */
-static const struct device *uart_dev;
+/* UART device (assigned when CN105 transport is implemented) */
+static const struct device *uart_dev __unused;
 
 /**
  * @brief Initialize the heat pump driver
@@ -171,7 +171,7 @@ int heatpump_set_mode(const char *mode)
  */
 int heatpump_set_temperature(float temperature)
 {
-    LOG_INF("Setting temperature: %.1f°C", temperature);
+    LOG_INF("Setting temperature: %.1f°C", static_cast<double>(temperature));
     
     /* TODO: Validate temperature range (16-31°C) */
     /* TODO: Send temperature command to heat pump */

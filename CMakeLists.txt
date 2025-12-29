@@ -14,6 +14,7 @@ target_sources(app PRIVATE
     src/matter_integration.cpp
     src/state_sync.cpp
     src/attribute_handlers.cpp
+    src/ot_error_stub.cpp
 )
 
 # Add include directories

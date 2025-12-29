@@ -70,7 +70,7 @@ int handle_temperature_setpoint_write(int16_t matter_temp)
     
     /* Validate temperature range */
     if (celsius < HP_TEMP_MIN || celsius > HP_TEMP_MAX) {
-        LOG_ERR("Temperature out of range: %.1f°C", celsius);
+        LOG_ERR("Temperature out of range: %.1f°C", static_cast<double>(celsius));
         return -EINVAL;
     }
     

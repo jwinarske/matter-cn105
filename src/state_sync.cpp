@@ -37,8 +37,9 @@ static void on_heatpump_settings_changed(heatpump_settings_t settings)
  */
 static void on_heatpump_status_changed(heatpump_status_t status)
 {
+    const double temp_c = static_cast<double>(status.roomTemperature);
     LOG_DBG("Heat pump status changed: temp=%.1f°C, operating=%d",
-            status.roomTemperature, status.operating);
+            temp_c, status.operating);
     
     /* TODO: Update Matter temperature measurement */
     /* TODO: Update Matter running state */
