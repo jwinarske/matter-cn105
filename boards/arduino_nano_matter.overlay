@@ -13,19 +13,18 @@
 	chosen {
 		/* Select the HDLC RCP network interface device */
 		zephyr,hdlc-rcp-if = &hdlc_rcp_if;
-		/* Underlying UART used by the HDLC RCP interface */
-		zephyr,ot-uart = &usart0;
 	};
 
-		/* Define the HDLC RCP interface device (UART-based) */
-		hdlc_rcp_if: hdlc_rcp_if {
-			compatible = "uart_hdlc_rcp_if";
-			status = "okay";
-		};
+	/* Define the HDLC RCP interface device (SPI-based SPINEL) */
+	hdlc_rcp_if: hdlc_rcp_if {
+		compatible = "spi_hdlc_rcp_if";
+		status = "okay";
+	};
 };
 
 /* Configure UART for CN105 communication
  * Baud: 2400, 8 data bits, even parity, 1 stop bit (8E1)
+ * Wired to Arduino UART0: TX=PA4 (D0), RX=PA5 (D1)
  */
 &eusart0 {
 	status = "okay";
@@ -33,12 +32,16 @@
 	parity = "even";
 	stop-bits = "1";
 	data-bits = <8>;
-
-	/* Pin configuration for hardware UART
-	 * TX: PA4 (D0)
-	 * RX: PA5 (D1)
-	 */
 	pinctrl-0 = <&eusart0_default>;
 	pinctrl-names = "default";
+};
+
+/* Configure SPI for OpenThread RCP (SPINEL protocol)
+ * Uses eusart1 as SPI bus with 4 MHz clock
+ * CS: PC7 (active low)
+ * Clock, MOSI, MISO: pins defined in eusart1_default pinctrl
+ */
+&eusart1 {
+	status = "okay";
 };
 
