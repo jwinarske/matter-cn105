@@ -9,6 +9,8 @@ project(matter_cn105_controller VERSION 0.1.0)
 
 # Add application source files
 target_sources(app PRIVATE
+    lib/HeatPump/heat_pump.h
+    lib/HeatPump/heat_pump.cpp
     src/main.c
     src/heatpump_driver.cpp
     src/matter_integration.cpp

@@ -12,6 +12,9 @@
 #include "heatpump_driver.h"
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/uart.h>
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include "../lib/HeatPump/heat_pump.h"
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(heatpump_driver, CONFIG_LOG_DEFAULT_LEVEL);
@@ -27,7 +30,8 @@ static heatpump_settings_callback_t settings_callback = NULL;
 static heatpump_status_callback_t status_callback = NULL;
 
 /* UART device (assigned when CN105 transport is implemented) */
-static const struct device *uart_dev __unused;
+static const struct device *uart_dev;
+static HeatPump s_hp;
 
 /**
  * @brief Initialize the heat pump driver
@@ -36,16 +40,20 @@ int heatpump_init(void)
 {
     LOG_INF("Initializing heat pump driver");
     
-    /* TODO: Get UART device from device tree */
-    /* uart_dev = DEVICE_DT_GET(DT_NODELABEL(heatpump_uart)); */
-    
-    /* TODO: Configure UART for CN105 communication */
-    /* - Baud rate: 2400 */
-    /* - Data bits: 8 */
-    /* - Parity: Even */
-    /* - Stop bits: 1 */
-    
-    /* TODO: Set up UART receive callback */
+#if DT_HAS_CHOSEN(heatpump_uart)
+    uart_dev = DEVICE_DT_GET(DT_CHOSEN(heatpump_uart));
+#else
+    uart_dev = DEVICE_DT_GET(DT_NODELABEL(eusart0));
+#endif
+    if (!device_is_ready(uart_dev)) {
+        LOG_ERR("Heatpump UART device not ready");
+        return -ENODEV;
+    }
+    if (!s_hp.connect(uart_dev, HP_UART_BAUD_RATE)) {
+        LOG_ERR("Heat pump handshake failed");
+        return -EIO;
+    }
+    connected = s_hp.isConnected();
     
     /* Initialize settings to default values */
     current_settings.power = "OFF";
@@ -79,15 +87,14 @@ int heatpump_init(void)
 int heatpump_connect(void)
 {
     LOG_INF("Connecting to heat pump...");
-    
-    /* TODO: Implement connection handshake */
-    /* TODO: Send CONNECT packet */
-    /* TODO: Wait for response */
-    
-    connected = false; /* Will be set to true after successful handshake */
-    
-    LOG_WRN("Heat pump connection not yet implemented");
-    return -ENOSYS;
+    if (!device_is_ready(uart_dev)) {
+        return -ENODEV;
+    }
+    if (!s_hp.connect(uart_dev, HP_UART_BAUD_RATE)) {
+        return -EIO;
+    }
+    connected = s_hp.isConnected();
+    return connected ? 0 : -EIO;
 }
 
 /**
@@ -95,8 +102,7 @@ int heatpump_connect(void)
  */
 void heatpump_sync(void)
 {
-    /* TODO: Send sync packet to maintain connection */
-    /* TODO: Request current settings and status */
+    s_hp.sync();
 }
 
 /**
@@ -107,8 +113,15 @@ int heatpump_get_settings(heatpump_settings_t *settings)
     if (settings == NULL) {
         return -EINVAL;
     }
-    
-    *settings = current_settings;
+    heatpumpSettings hp = s_hp.getSettings();
+    settings->power = hp.power;
+    settings->mode = hp.mode;
+    settings->temperature = hp.temperature;
+    settings->fan = hp.fan;
+    settings->vane = hp.vane;
+    settings->wideVane = hp.wideVane;
+    settings->iSee = hp.iSee;
+    settings->connected = connected;
     return 0;
 }
 
@@ -120,8 +133,10 @@ int heatpump_get_status(heatpump_status_t *status)
     if (status == NULL) {
         return -EINVAL;
     }
-    
-    *status = current_status;
+    heatpumpStatus s = s_hp.getStatus();
+    status->roomTemperature = s.roomTemperature;
+    status->operating = s.operating;
+    status->compressorFrequency = s.compressorFrequency;
     return 0;
 }
 
@@ -133,7 +148,9 @@ int heatpump_get_timers(heatpump_timers_t *timers)
     if (timers == NULL) {
         return -EINVAL;
     }
-    
+    /* The library exposes timers via getStatus parsing; no direct method */
+    heatpumpStatus s = s_hp.getStatus();
+    (void)s;
     *timers = current_timers;
     return 0;
 }
@@ -144,12 +161,8 @@ int heatpump_get_timers(heatpump_timers_t *timers)
 int heatpump_set_power(const char *power)
 {
     LOG_INF("Setting power: %s", power);
-    
-    /* TODO: Validate power value */
-    /* TODO: Send power command to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    s_hp.setPowerSetting((power && power[0] == 'O' && power[1] == 'N') ? true : false);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -158,12 +171,8 @@ int heatpump_set_power(const char *power)
 int heatpump_set_mode(const char *mode)
 {
     LOG_INF("Setting mode: %s", mode);
-    
-    /* TODO: Validate mode value */
-    /* TODO: Send mode command to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    s_hp.setModeSetting(mode);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -171,13 +180,9 @@ int heatpump_set_mode(const char *mode)
  */
 int heatpump_set_temperature(float temperature)
 {
-    LOG_INF("Setting temperature: %.1f°C", static_cast<double>(temperature));
-    
-    /* TODO: Validate temperature range (16-31°C) */
-    /* TODO: Send temperature command to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    LOG_INF("Setting temperature: %.1f°C", (double)temperature);
+    s_hp.setTemperature(temperature);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -186,12 +191,8 @@ int heatpump_set_temperature(float temperature)
 int heatpump_set_fan(const char *fan)
 {
     LOG_INF("Setting fan: %s", fan);
-    
-    /* TODO: Validate fan value */
-    /* TODO: Send fan command to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    s_hp.setFanSpeed(fan);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -200,12 +201,8 @@ int heatpump_set_fan(const char *fan)
 int heatpump_set_vane(const char *vane)
 {
     LOG_INF("Setting vane: %s", vane);
-    
-    /* TODO: Validate vane value */
-    /* TODO: Send vane command to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    s_hp.setVaneSetting(vane);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -214,12 +211,8 @@ int heatpump_set_vane(const char *vane)
 int heatpump_set_wide_vane(const char *wide_vane)
 {
     LOG_INF("Setting wide vane: %s", wide_vane);
-    
-    /* TODO: Validate wide_vane value */
-    /* TODO: Send wide vane command to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    s_hp.setWideVaneSetting(wide_vane);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -230,14 +223,16 @@ int heatpump_update_settings(const heatpump_settings_t *settings)
     if (settings == NULL) {
         return -EINVAL;
     }
-    
     LOG_INF("Updating all settings");
-    
-    /* TODO: Validate all settings */
-    /* TODO: Send settings update packet to heat pump */
-    /* TODO: Update current_settings after confirmation */
-    
-    return -ENOSYS;
+    heatpumpSettings s;
+    s.power = settings->power;
+    s.mode = settings->mode;
+    s.temperature = settings->temperature;
+    s.fan = settings->fan;
+    s.vane = settings->vane;
+    s.wideVane = settings->wideVane;
+    s_hp.setSettings(s);
+    return s_hp.update() ? 0 : -EIO;
 }
 
 /**
@@ -261,5 +256,5 @@ void heatpump_set_status_callback(heatpump_status_callback_t callback)
  */
 bool heatpump_is_connected(void)
 {
-    return connected;
+    return s_hp.isConnected();
 }
