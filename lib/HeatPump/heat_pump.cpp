@@ -110,7 +110,7 @@ bool HeatPump::connect(const struct device *dev, int bitrate) {
   k_msleep(2000);
 
   // send the CONNECT packet twice - need to copy the CONNECT packet locally
-  byte packet[CONNECT_LEN];
+  uint8_t packet[CONNECT_LEN];
   memcpy(packet, CONNECT, CONNECT_LEN);
   //for(int count = 0; count < 2; count++) {
   writePacket(packet, CONNECT_LEN);
@@ -133,7 +133,7 @@ bool HeatPump::update() {
   // RCVD_PKT_UPDATE_SUCCESS
   readAllPackets();
 
-  byte packet[PACKET_LEN] = {};
+  uint8_t packet[PACKET_LEN] = {};
   createPacket(packet, wantedSettings);
   writePacket(packet, PACKET_LEN);
 
@@ -158,7 +158,7 @@ bool HeatPump::update() {
   }
 }
 
-void HeatPump::sync(byte packetType) {
+void HeatPump::sync(uint8_t packetType) {
   if((!connected) || (k_uptime_get_32() - lastRecv > (PACKET_SENT_INTERVAL_MS * 10))) {
     connect(NULL);
   }
@@ -169,7 +169,7 @@ void HeatPump::sync(byte packetType) {
     update();
   }
   else if(canSend(true)) {
-    byte packet[PACKET_LEN] = {};
+    uint8_t packet[PACKET_LEN] = {};
     createInfoPacket(packet, packetType);
     writePacket(packet, PACKET_LEN);
   }
@@ -276,7 +276,7 @@ void HeatPump::setTemperature(float setting) {
 }
 
 void HeatPump::setRemoteTemperature(float setting) {
-  byte packet[PACKET_LEN] = {};
+  uint8_t packet[PACKET_LEN] = {};
   
   prepareSetPacket(packet, PACKET_LEN);
   
@@ -296,7 +296,7 @@ void HeatPump::setRemoteTemperature(float setting) {
     packet[8] = 0x80; //MHK1 send 80, even though it could be 00, since ControlByte is 00
   } 
   // add the checksum
-  byte chkSum = checkSum(packet, 21);
+  uint8_t chkSum = checkSum(packet, 21);
   packet[21] = chkSum;
   while(!canSend(false)) { k_msleep(10); }
   writePacket(packet, PACKET_LEN);
@@ -392,12 +392,12 @@ void HeatPump::setRoomTempChangedCallback(ROOM_TEMP_CHANGED_CALLBACK_SIGNATURE) 
 }
 
 //#### WARNING, THE FOLLOWING METHOD CAN F--K YOUR HP UP, USE WISELY ####
-void HeatPump::sendCustomPacket(byte data[], int packetLength) {
+void HeatPump::sendCustomPacket(uint8_t data[], int packetLength) {
   while(!canSend(false)) { k_msleep(10); }
 
   int plen = packetLength + 2;
   plen = (plen > PACKET_LEN) ? PACKET_LEN : plen;
-  byte packet[PACKET_LEN];
+  uint8_t packet[PACKET_LEN];
   packet[0] = HEADER[0];
 
   // add data
@@ -406,7 +406,7 @@ void HeatPump::sendCustomPacket(byte data[], int packetLength) {
   }
 
   // add checksum
-  byte chkSum = checkSum(packet, (plen-1));
+  uint8_t chkSum = checkSum(packet, (plen-1));
   packet[(plen-1)] = chkSum;
 
   writePacket(packet, plen);
@@ -454,7 +454,7 @@ int HeatPump::lookupByteMapIndex(const char* valuesMap[], int len, const char* l
 }
 
 
-const char* HeatPump::lookupByteMapValue(const char* valuesMap[], const byte byteMap[], int len, byte byteValue) {
+const char* HeatPump::lookupByteMapValue(const char* valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
   for (int i = 0; i < len; i++) {
     if (byteMap[i] == byteValue) {
       return valuesMap[i];
@@ -463,7 +463,7 @@ const char* HeatPump::lookupByteMapValue(const char* valuesMap[], const byte byt
   return valuesMap[0];
 }
 
-int HeatPump::lookupByteMapValue(const int valuesMap[], const byte byteMap[], int len, byte byteValue) {
+int HeatPump::lookupByteMapValue(const int valuesMap[], const uint8_t byteMap[], int len, uint8_t byteValue) {
   for (int i = 0; i < len; i++) {
     if (byteMap[i] == byteValue) {
       return valuesMap[i];
@@ -480,15 +480,15 @@ bool HeatPump::canRead() {
   return (waitForRead && (k_uptime_get_32() - PACKET_SENT_INTERVAL_MS) > lastSend);
 }
 
-byte HeatPump::checkSum(byte bytes[], int len) {
-  byte sum = 0;
+uint8_t HeatPump::checkSum(uint8_t bytes[], int len) {
+  uint8_t sum = 0;
   for (int i = 0; i < len; i++) {
     sum += bytes[i];
   }
   return (0xfc - sum) & 0xff;
 }
 
-void HeatPump::createPacket(byte *packet, heatpumpSettings settings) {
+void HeatPump::createPacket(uint8_t *packet, heatpumpSettings settings) {
   prepareSetPacket(packet, PACKET_LEN);
   
   if(settings.power != currentSettings.power) {
@@ -521,11 +521,11 @@ void HeatPump::createPacket(byte *packet, heatpumpSettings settings) {
     packet[7] += CONTROL_PACKET_2[0];
   }
   // add the checksum
-  byte chkSum = checkSum(packet, 21);
+  uint8_t chkSum = checkSum(packet, 21);
   packet[21] = chkSum;
 }
 
-void HeatPump::createInfoPacket(byte *packet, byte packetType) {
+void HeatPump::createInfoPacket(uint8_t *packet, uint8_t packetType) {
   // add the header to the packet
   for (int i = 0; i < INFOHEADER_LEN; i++) {
     packet[i] = INFOHEADER[i];
@@ -551,11 +551,11 @@ void HeatPump::createInfoPacket(byte *packet, byte packetType) {
   }
 
   // add the checksum
-  byte chkSum = checkSum(packet, 21);
+  uint8_t chkSum = checkSum(packet, 21);
   packet[21] = chkSum;
 }
 
-void HeatPump::writePacket(byte *packet, int length) {
+void HeatPump::writePacket(uint8_t *packet, int length) {
   for (int i = 0; i < length; i++) {
     uart_poll_out(uart_dev, (unsigned char)packet[i]);
   }
@@ -568,12 +568,12 @@ void HeatPump::writePacket(byte *packet, int length) {
 }
 
 int HeatPump::readPacket() {
-  byte header[INFOHEADER_LEN] = {};
-  byte data[PACKET_LEN] = {};
+  uint8_t header[INFOHEADER_LEN] = {};
+  uint8_t data[PACKET_LEN] = {};
   bool foundStart = false;
   int dataSum = 0;
-  byte checksum = 0;
-  byte dataLength = 0;
+  uint8_t checksum = 0;
+  uint8_t dataLength = 0;
   
   waitForRead = false;
 
@@ -633,7 +633,7 @@ int HeatPump::readPacket() {
     if(data[dataLength] == checksum) {
       lastRecv = k_uptime_get_32();
       if(packetCallback) {
-        byte packet[37];
+        uint8_t packet[37];
         for(int i=0; i<INFOHEADER_LEN; i++) {
           packet[i] = header[i];
         }
@@ -764,16 +764,16 @@ void HeatPump::readAllPackets() {
   }
 }
 
-void HeatPump::prepareInfoPacket(byte* packet, int length) {
-  memset(packet, 0, length * sizeof(byte));
+void HeatPump::prepareInfoPacket(uint8_t* packet, int length) {
+  memset(packet, 0, length * sizeof(uint8_t));
   
   for (int i = 0; i < INFOHEADER_LEN && i < length; i++) {
     packet[i] = INFOHEADER[i];
   }  
 }
 
-void HeatPump::prepareSetPacket(byte* packet, int length) {
-  memset(packet, 0, length * sizeof(byte));
+void HeatPump::prepareSetPacket(uint8_t* packet, int length) {
+  memset(packet, 0, length * sizeof(uint8_t));
   
   for (int i = 0; i < HEADER_LEN && i < length; i++) {
     packet[i] = HEADER[i];
@@ -783,8 +783,8 @@ void HeatPump::prepareSetPacket(byte* packet, int length) {
 heatpumpFunctions HeatPump::getFunctions() {
   functions.clear();
   
-  byte packet1[PACKET_LEN] = {};
-  byte packet2[PACKET_LEN] = {};
+  uint8_t packet1[PACKET_LEN] = {};
+  uint8_t packet2[PACKET_LEN] = {};
 
   prepareInfoPacket(packet1, PACKET_LEN);
   packet1[5] = FUNCTIONS_GET_PART1;
@@ -817,8 +817,8 @@ bool HeatPump::setFunctions(heatpumpFunctions const& functions) {
     return false;
   }
 
-  byte packet1[PACKET_LEN] = {};
-  byte packet2[PACKET_LEN] = {};
+  uint8_t packet1[PACKET_LEN] = {};
+  uint8_t packet2[PACKET_LEN] = {};
 
   prepareSetPacket(packet1, PACKET_LEN);
   packet1[5] = FUNCTIONS_SET_PART1;
@@ -862,21 +862,21 @@ bool heatpumpFunctions::isValid() const {
   return _isValid1 && _isValid2;
 }
 
-void heatpumpFunctions::setData1(byte* data) {
+void heatpumpFunctions::setData1(uint8_t* data) {
   memcpy(raw, data, 15);
   _isValid1 = true;
 }
 
-void heatpumpFunctions::setData2(byte* data) {
+void heatpumpFunctions::setData2(uint8_t* data) {
   memcpy(raw + 15, data, 15);
   _isValid2 = true;
 }
 
-void heatpumpFunctions::getData1(byte* data) const {
+void heatpumpFunctions::getData1(uint8_t* data) const {
   memcpy(data, raw, 15);
 }
 
-void heatpumpFunctions::getData2(byte* data) const {
+void heatpumpFunctions::getData2(uint8_t* data) const {
   memcpy(data, raw + 15, 15);
 }
 
@@ -886,11 +886,11 @@ void heatpumpFunctions::clear() {
   _isValid2 = false;
 }
 
-int heatpumpFunctions::getCode(byte b) {
+int heatpumpFunctions::getCode(uint8_t b) {
   return ((b >> 2) & 0xff) + 100;
 }
 
-int heatpumpFunctions::getValue(byte b) {
+int heatpumpFunctions::getValue(uint8_t b) {
   return b & 3;
 }
     
