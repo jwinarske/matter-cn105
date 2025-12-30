@@ -19,6 +19,28 @@
 
 LOG_MODULE_REGISTER(heatpump_driver, CONFIG_LOG_DEFAULT_LEVEL);
 
+/* Thread configuration */
+#define HEATPUMP_THREAD_STACK_SIZE 2048
+#define HEATPUMP_THREAD_PRIORITY   5
+#define HEATPUMP_UPDATE_INTERVAL_MS 100  /* Poll heat pump every 100ms */
+
+/* Memory slab configuration for packet buffers */
+#define PACKET_BUFFER_SIZE  64  /* Max packet size is 22 bytes, rounded to 64 for alignment */
+#define NUM_PACKET_BUFFERS  4   /* Pre-allocate 4 packet buffers for concurrent operations */
+
+/**
+ * @brief Packet buffer structure for memory slab
+ *
+ * Provides a predictable memory layout for efficient allocation.
+ */
+struct packet_buffer {
+    uint8_t data[PACKET_BUFFER_SIZE];
+    size_t length;
+};
+
+/* Define and initialize the packet buffer memory slab */
+K_MEM_SLAB_DEFINE(packet_slab, sizeof(struct packet_buffer), NUM_PACKET_BUFFERS, 4);
+
 /* Static variables for driver state */
 static heatpump_settings_t current_settings;
 static heatpump_status_t current_status;
@@ -33,7 +55,164 @@ static heatpump_status_callback_t status_callback = NULL;
 static const struct device *uart_dev;
 static HeatPump s_hp;
 
+/* Thread management */
+static struct k_thread heatpump_thread_data;
+static k_tid_t heatpump_thread_id = NULL;
+static bool heatpump_thread_running = false;
+static K_THREAD_STACK_DEFINE(heatpump_stack, HEATPUMP_THREAD_STACK_SIZE);
+
+/* Forward declarations for HeatPump library callbacks */
+static void hp_on_connect_callback(void);
+static void hp_settings_changed_callback(void);
+static void hp_status_changed_callback(heatpumpStatus newStatus);
+static void hp_packet_callback(uint8_t* packet, unsigned int length, char* packetDirection);
+static void hp_room_temp_changed_callback(float currentRoomTemperature);
 /**
+ * @brief HeatPump library callback: Connection established
+ * 
+ * Called when the heat pump handshake is successful
+ */
+static void hp_on_connect_callback(void)
+{
+    LOG_INF("Heat pump connected");
+    connected = true;
+}
+
+/**
+ * @brief HeatPump library callback: Settings changed
+ * 
+ * Called when the heat pump settings change
+ */
+static void hp_settings_changed_callback(void)
+{
+    LOG_INF("Heat pump settings changed");
+    
+    /* Update local cache */
+    heatpumpSettings hp = s_hp.getSettings();
+    current_settings.power = hp.power;
+    current_settings.mode = hp.mode;
+    current_settings.temperature = hp.temperature;
+    current_settings.fan = hp.fan;
+    current_settings.vane = hp.vane;
+    current_settings.wideVane = hp.wideVane;
+    current_settings.iSee = hp.iSee;
+    current_settings.connected = connected;
+    
+    /* Call registered application callback if present */
+    if (settings_callback) {
+        settings_callback(current_settings);
+    }
+}
+
+/**
+ * @brief HeatPump library callback: Status changed
+ * 
+ * Called when the heat pump status changes
+ * 
+ * @param newStatus The new status from the heat pump
+ */
+static void hp_status_changed_callback(heatpumpStatus newStatus)
+{
+    LOG_INF("Heat pump status changed");
+    
+    /* Update local cache */
+    current_status.roomTemperature = newStatus.roomTemperature;
+    current_status.operating = newStatus.operating;
+    current_status.compressorFrequency = newStatus.compressorFrequency;
+    
+    /* Update timers as well */
+    current_timers.mode = newStatus.timers.mode;
+    current_timers.onMinutesSet = newStatus.timers.onMinutesSet;
+    current_timers.onMinutesRemaining = newStatus.timers.onMinutesRemaining;
+    current_timers.offMinutesSet = newStatus.timers.offMinutesSet;
+    current_timers.offMinutesRemaining = newStatus.timers.offMinutesRemaining;
+    
+    /* Call registered application callback if present */
+    if (status_callback) {
+        status_callback(current_status);
+    }
+}
+
+/**
+ * @brief HeatPump library callback: Packet transmitted or received
+ * 
+ * Called for debug/logging purposes when packets are sent or received
+ * 
+ * @param packet The packet data
+ * @param length The packet length
+ * @param packetDirection Direction indicator ("packetSent" or "packetRecv")
+ */
+static void hp_packet_callback(uint8_t* packet, unsigned int length, char* packetDirection)
+{
+    if (packet && length > 0 && packetDirection) {
+        LOG_DBG("Heat pump packet %s: %d bytes", packetDirection, length);
+        /* Could log hex dump here for deeper debugging if needed */
+    }
+}
+
+/**
+ * @brief HeatPump library callback: Room temperature changed
+ * 
+ * Called when the room temperature reading changes
+ * 
+ * @param currentRoomTemperature The new room temperature
+ */
+static void hp_room_temp_changed_callback(float currentRoomTemperature)
+{
+    LOG_INF("Room temperature: %.1f°C", (double)currentRoomTemperature);
+    current_status.roomTemperature = currentRoomTemperature;
+    
+    /* Call registered application callback if present */
+    if (status_callback) {
+        status_callback(current_status);
+    }
+}
+
+/**
+ * @brief Heatpump update thread
+ * 
+ * This thread runs periodically to:
+ * - Transmit pending commands to the heat pump
+ * - Read responses from the heat pump
+ * - Invoke callbacks when state changes occur
+ * 
+ * This replaces the Arduino loop() paradigm with Zephyr threading
+ * 
+ * @param arg1 Unused argument (required by k_thread_create)
+ * @param arg2 Unused argument (required by k_thread_create)
+ * @param arg3 Unused argument (required by k_thread_create)
+ */
+static void heatpump_update_thread(void *arg1, void *arg2, void *arg3)
+{
+    ARG_UNUSED(arg1);
+    ARG_UNUSED(arg2);
+    ARG_UNUSED(arg3);
+    
+    LOG_INF("Heat pump update thread started");
+    heatpump_thread_running = true;
+    
+    /* Main update loop */
+    while (heatpump_thread_running) {
+        /* Call the HeatPump library's update method */
+        /* This method handles:
+         * - Sending queued commands
+         * - Reading responses
+         * - Triggering registered callbacks
+         */
+        if (s_hp.update()) {
+            /* Update was successful */
+            LOG_DBG("Heat pump update completed");
+        }
+        
+        /* Sleep for the configured update interval */
+        k_msleep(HEATPUMP_UPDATE_INTERVAL_MS);
+    }
+    
+    LOG_INF("Heat pump update thread stopped");
+}
+
+/**
+
  * @brief Initialize the heat pump driver
  */
 int heatpump_init(void)
@@ -77,7 +256,60 @@ int heatpump_init(void)
     current_timers.offMinutesSet = 0;
     current_timers.offMinutesRemaining = 0;
     
+    /* Register HeatPump library callbacks for Zephyr integration */
+    s_hp.setOnConnectCallback(hp_on_connect_callback);
+    s_hp.setSettingsChangedCallback(hp_settings_changed_callback);
+    s_hp.setStatusChangedCallback(hp_status_changed_callback);
+    s_hp.setPacketCallback(hp_packet_callback);
+    s_hp.setRoomTempChangedCallback(hp_room_temp_changed_callback);
+    
+    /* Start the heat pump update thread */
+    heatpump_thread_id = k_thread_create(&heatpump_thread_data,
+                                         heatpump_stack,
+                                         HEATPUMP_THREAD_STACK_SIZE,
+                                         heatpump_update_thread,
+                                         NULL, NULL, NULL,
+                                         HEATPUMP_THREAD_PRIORITY,
+                                         0,
+                                         K_NO_WAIT);
+    
+    if (heatpump_thread_id == NULL) {
+        LOG_ERR("Failed to create heat pump update thread");
+        return -EAGAIN;
+    }
+    
+    k_thread_name_set(heatpump_thread_id, "heatpump");
+    
     LOG_INF("Heat pump driver initialized");
+    return 0;
+}
+
+/**
+ * @brief Shutdown the heat pump driver
+ *
+ * Stops the update thread and cleans up resources
+ *
+ * @return 0 on success, negative errno on failure
+ */
+int heatpump_shutdown(void)
+{
+    LOG_INF("Shutting down heat pump driver");
+    
+    if (heatpump_thread_id != NULL) {
+        /* Signal the thread to stop */
+        heatpump_thread_running = false;
+        
+        /* Wait for thread to complete (with timeout) */
+        int ret = k_thread_join(heatpump_thread_id, K_MSEC(5000));
+        if (ret != 0) {
+            LOG_WRN("Heat pump thread did not exit cleanly, forcing abort");
+            k_thread_abort(heatpump_thread_id);
+        }
+        
+        heatpump_thread_id = NULL;
+    }
+    
+    LOG_INF("Heat pump driver shutdown complete");
     return 0;
 }
 

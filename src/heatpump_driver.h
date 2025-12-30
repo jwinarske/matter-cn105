@@ -1,9 +1,24 @@
 /**
  * @file heatpump_driver.h
  * @brief Heat pump driver interface for CN105 communication
- * 
+ *
  * Provides the API for communicating with Mitsubishi heat pumps
  * via the CN105 connector. Based on the SwiCago/HeatPump library.
+ *
+ * @section memory Memory Management
+ *
+ * This driver uses Zephyr memory pools for efficient packet buffer allocation:
+ * - Pre-allocated pool of 4 x 64-byte buffers
+ * - Predictable allocation latency (no fragmentation)
+ * - Suitable for real-time UART communication
+ *
+ * @section threading Threading Model
+ *
+ * Runs a dedicated Zephyr thread for periodic heat pump polling:
+ * - Update interval: 100ms (configurable)
+ * - Priority: 5 (configurable)
+ * - Stack size: 2048 bytes (configurable)
+ * - Callbacks invoked from this thread context
  */
 
 #ifndef HEATPUMP_DRIVER_H
@@ -33,11 +48,21 @@ typedef void (*heatpump_status_callback_t)(heatpump_status_t status);
 /**
  * @brief Initialize the heat pump driver
  * 
- * Sets up UART communication with the heat pump via CN105
+ * Sets up UART communication with the heat pump via CN105,
+ * initializes memory pools, and starts the periodic update thread.
  * 
  * @return 0 on success, negative errno on failure
  */
 int heatpump_init(void);
+
+/**
+ * @brief Shutdown the heat pump driver
+ *
+ * Stops the update thread and cleans up resources
+ *
+ * @return 0 on success, negative errno on failure
+ */
+int heatpump_shutdown(void);
 
 /**
  * @brief Connect to the heat pump
@@ -158,6 +183,27 @@ void heatpump_set_status_callback(heatpump_status_callback_t callback);
  * @return true if connected, false otherwise
  */
 bool heatpump_is_connected(void);
+
+/**
+ * @section pool_config Memory Pool Configuration
+ *
+ * The driver uses a Zephyr memory pool for packet buffer allocation.
+ * Configuration parameters in heatpump_driver.cpp:
+ *
+ * - PACKET_BUFFER_SIZE: Size of each buffer (default 64 bytes)
+ * - NUM_PACKET_BUFFERS: Number of pre-allocated buffers (default 4)
+ *
+ * To customize these values:
+ * 1. Edit the #define values in heatpump_driver.cpp
+ * 2. Adjust based on your application's packet throughput
+ * 3. Monitor with pool statistics via logging/debug interface
+ *
+ * Benefits of memory pools:
+ * - Deterministic allocation time (O(1))
+ * - No fragmentation
+ * - No malloc/free overhead
+ * - Real-time safe
+ */
 
 #ifdef __cplusplus
 }
